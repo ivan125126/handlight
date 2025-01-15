@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP8266 Lamp Control</title>
+</head>
+<body>
+  <h1>ESP8266 Lamp Control - 8 Zones</h1>
+  <div id="zones"></div>
+
+  <script>
+    const modes = ["off", "color", "blink", "fade"]; 
+
+    async function fetchZones() {
+      const res = await fetch('/api/zones');
+      const data = await res.json();
+      return data;  // [ {id, mode, r, g, b}, ... ]
+    }
+
+    async function updateZone(id, payload) {
+      // PATCH /api/zones/:id
+      await fetch(`/api/zones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    function createZoneElement(zone) {
+      const div = document.createElement('div');
+      div.style.border = "1px solid #ccc";
+      div.style.padding = "10px";
+      div.style.margin = "5px";
+      div.style.display = "inline-block";
+
+      const title = document.createElement('h3');
+      title.textContent = `Zone #${zone.id}`;
+      div.appendChild(title);
+
+      // 模式下拉選單
+      const modeSelect = document.createElement('select');
+      for (let m of modes) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        if (zone.mode === m) opt.selected = true;
+        modeSelect.appendChild(opt);
+      }
+      div.appendChild(modeSelect);
+
+      // 顏色選擇器
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      // 將 zone 的 r,g,b 轉成 hex
+      let rHex = zone.r.toString(16).padStart(2, '0');
+      let gHex = zone.g.toString(16).padStart(2, '0');
+      let bHex = zone.b.toString(16).padStart(2, '0');
+      colorInput.value = `#${rHex}${gHex}${bHex}`;
+      div.appendChild(colorInput);
+
+      // 按鈕
+      const btn = document.createElement('button');
+      btn.textContent = "Set";
+      btn.onclick = async () => {
+        let mode = modeSelect.value;
+        // colorInput.value -> "#rrggbb"
+        let colorHex = colorInput.value.replace('#', '');
+        let r = parseInt(colorHex.substring(0,2), 16);
+        let g = parseInt(colorHex.substring(2,4), 16);
+        let b = parseInt(colorHex.substring(4,6), 16);
+
+        await updateZone(zone.id, { mode, r, g, b });
+        alert(`Zone #${zone.id} updated!`);
+      };
+      div.appendChild(btn);
+
+      return div;
+    }
+
+    async function main() {
+      const zonesData = await fetchZones();
+      const container = document.getElementById('zones');
+      container.innerHTML = '';
+
+      zonesData.forEach(zone => {
+        const zEl = createZoneElement(zone);
+        container.appendChild(zEl);
+      });
+    }
+
+    main();
+  </script>
+</body>
+</html>
